@@ -6,13 +6,14 @@
 	"main": "lib/phonehome.js",
 	"jsnext:main": "src/phonehome.js",
 	"browser": {
-		"request": "browser-request"
+		"http": false,
+		"url": false,
+		"content-type": false,
+		"body-parser": false
 	},
 	"dependencies": {
-		"bluebird": "~3.0.2",
-		"browser-request": "~0.3.3",
-		"has-own-prop": "~1.0.0",
-		"request": "~2.65.0"
+		"body-parser": "~1.14.1",
+		"content-type": "~1.0.1"
 	},
 	"devDependencies": {
 		"browserify": "~12.0.1",

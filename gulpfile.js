@@ -87,21 +87,12 @@ gulp.task("compile", function() {
 		.pipe(gulp.dest("lib"));
 });
 
-gulp.task("extract-sourcemap", ["bundle"], function() {
-	return gulp.src("lib/phonehome.js")
-		.pipe(sourcemaps.init({ loadMaps: true }))
-		.pipe(sourcemaps.write(".", { sourceRoot: "./" }))
-		.pipe(gulp.dest('lib/'));
-});
-
 gulp.task("bundle", ["compile"], function() {
 	var js = browserify("phonehome.js", {
 		standalone: "PhoneHome",
 		debug: true,
 		basedir: __dirname + "/lib"
 	});
-
-	// js.ignore("jquery");
 
 	return js.bundle()
 		.pipe(plumber({
@@ -121,7 +112,7 @@ gulp.task("minify-lib", ["compile"], function() {
 		.pipe(sourcemaps.init({ loadMaps: true }))
 		.pipe(uglify())
 		.pipe(rename({ suffix: ".min" }))
-		.pipe(sourcemaps.write(".", { sourceRoot: "./" }))
+		.pipe(sourcemaps.write({ sourceRoot: "./" }))
 		.pipe(gulp.dest('lib/'));
 });
 
@@ -135,5 +126,6 @@ gulp.task("minify-bundle", ["bundle"], function() {
 });
 
 gulp.task("minify", [ "minify-lib", "minify-bundle" ]);
-gulp.task("dist", [ "minify", "extract-sourcemap" ]);
+gulp.task("dev", [ "bundle" ]);
+gulp.task("dist", [ "minify" ]);
 gulp.task("default", [ "dist" ]);
