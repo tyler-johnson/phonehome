@@ -62,8 +62,8 @@ export default class PhoneHome extends EventEmitter {
 	}
 
 	call(name) {
-		var done;
-		var args = Array.prototype.slice.call(arguments, 1);
+		let done;
+		let args = Array.prototype.slice.call(arguments, 1);
 
 		if (args.length && typeof args[args.length - 1] === "function") {
 			done = args.pop();
@@ -143,13 +143,13 @@ export default class PhoneHome extends EventEmitter {
 
 	_exec(name, args, mixin) {
 		// get the method
-		var method = this.s.methods[name];
+		let method = this.s.methods[name];
 		if (!method) {
 			return Promise.reject(new PhoneError("No method '" + name + "' defined."));
 		}
 
 		// create the request object
-		var req = Object.assign({}, mixin, {
+		let req = Object.assign({}, mixin, {
 			phone: this,
 			name: name,
 			arguments: args,
@@ -158,9 +158,9 @@ export default class PhoneHome extends EventEmitter {
 		});
 
 		// switches to callback based async
-		var result, done;
+		let result, done;
 		req.async = function() {
-			var good, bad;
+			let good, bad;
 			if (!done) {
 				result = new Promise((g, b) => [good,bad] = [g,b]);
 				done = (e, r) => e ? bad(e) : good(r);
@@ -169,7 +169,7 @@ export default class PhoneHome extends EventEmitter {
 		};
 
 		// run the method and return the result
-		var syncResult = method.fn.apply(req, args);
+		let syncResult = method.fn.apply(req, args);
 		if (result == null) result = syncResult;
 		return Promise.resolve(result);
 	}
