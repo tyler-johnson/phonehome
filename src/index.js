@@ -89,13 +89,12 @@ export default class PhoneHome extends EventEmitter {
 		// apply(name, options, cb)
 		if (args == null || typeof args === "object") {
 			if (typeof options === "function" && cb == null) {
-				[cb,options] = [options,cb];
+				[cb,options] = [options,null];
 			}
 
-			if (Array.isArray(args)) {
-				options = null;
-			} else {
-				[options, args] = [args, []];
+			if (options == null) {
+				if (Array.isArray(args)) options = null;
+				else [options, args] = [args, []];
 			}
 		}
 
@@ -175,8 +174,8 @@ export default class PhoneHome extends EventEmitter {
 		return Promise.resolve(result);
 	}
 
-	http() {
-		return Post.responder(this);
+	http(opts) {
+		return Post.responder(this, opts);
 	}
 }
 
