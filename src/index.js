@@ -1,6 +1,7 @@
 import * as Post from "./post";
 import PhoneError from "./error";
 import {EventEmitter} from "events";
+import {confusedAsync, callbackify} from "./utils";
 
 export default class PhoneHome extends EventEmitter {
 	constructor(options) {
@@ -14,9 +15,9 @@ export default class PhoneHome extends EventEmitter {
 		this.s = {
 			// holds the methods
 			methods: [],
-			// whether this is a trusted connection
-			trusted: typeof options.trusted === "boolean" ? options.trusted : typeof window === "undefined",
-			// whether or nor untrusted clients will simulate a method
+			// whether this is a home connection
+			home: typeof options.home === "boolean" ? options.home : typeof window === "undefined",
+			// whether or nor unhome clients will simulate a method
 			simulate: options.simulate == null ? false : options.simulate,
 			// method to call for remote operations
 			request: options.request != null ? options.request : Post.request
@@ -26,7 +27,7 @@ export default class PhoneHome extends EventEmitter {
 		this.options = options;
 	}
 
-	get trusted() { return this.s.trusted; }
+	get isHome() { return this.s.home; }
 
 	has(name) {
 		return Boolean(this.s.methods[name]);
@@ -76,14 +77,36 @@ export default class PhoneHome extends EventEmitter {
 			return Promise.reject(new PhoneError("Missing method name."));
 		}
 
-		if (typeof args === "function") [cb, args] = [args, null];
-		if (typeof options === "function") [cb, options] = [options, null];
+		// apply(name, cb)
+		if (typeof args === "function" && options == null && cb == null) {
+			[cb, args] = [args, []];
+		}
+
+		// apply(name)
+		// apply(name, args)
+		// apply(name, args, cb)
+		// apply(name, options)
+		// apply(name, options, cb)
+		if (args == null || typeof args === "object") {
+			if (typeof options === "function" && cb == null) {
+				[cb,options] = [options,cb];
+			}
+
+			if (Array.isArray(args)) {
+				options = null;
+			} else {
+				[options, args] = [args, []];
+			}
+		}
+
+		if (!Array.isArray(args)) {
+			throw new Error("Arguments must be an array.");
+		}
 
 		options = options || {};
-		args = Array.isArray(args) ? args.slice(0) : args != null ? [ args ] : [];
 
-		// untrusted code phones home
-		if (!this.trusted) {
+		// code thats not at home needs to phone home
+		if (!this.isHome) {
 			let remote, local, sim;
 			sim = options.simulate != null ? options.simulate : this.s.simulate;
 			remote = this._request(name, args, options);
@@ -97,35 +120,26 @@ export default class PhoneHome extends EventEmitter {
 				}
 
 				if (typeof options.onError === "function") {
-					remote.then(options.onError);
+					remote.catch(options.onError);
 				}
 
-				return local;
+				return callbackify(local, cb);
 			}
 
-			return remote;
+			return callbackify(remote, cb);
 		}
 
-		// trusted clients do a normal execution
-		return this._exec(name, args, options.mixin);
+		// home clients do a normal execution
+		return callbackify(this._exec(name, args, options.mixin), cb);
 	}
 
-	_request(name, args) {
+	_request(name, args, options) {
 		let req = this.s.request;
 		if (typeof req !== "function") {
 			return Promise.reject(new PhoneError("Missing request method to call home with."));
 		}
 
-		if (req.length > 2) {
-			return new Promise((resolve, reject) => {
-				req.call(this, name, args, function(err, resp) {
-					if (err != null) reject(err);
-					else resolve(resp);
-				});
-			});
-		} else {
-			return Promise.resolve(req.call(this, name, args));
-		}
+		return confusedAsync(req, this, [ name, args, options ]);
 	}
 
 	_exec(name, args, mixin) {
@@ -140,7 +154,7 @@ export default class PhoneHome extends EventEmitter {
 			phone: this,
 			name: name,
 			arguments: args,
-			isSimulation: !this.trusted,
+			isSimulation: !this.isHome,
 			options: method.options || {}
 		});
 

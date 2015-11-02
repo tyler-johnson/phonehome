@@ -3,6 +3,7 @@ import Url from "url";
 import contentType from "content-type";
 import PhoneError from "./error";
 import {json as jsonParser} from "body-parser";
+import {confusedAsync} from "./utils";
 
 var post;
 
@@ -57,15 +58,28 @@ if (typeof XMLHttpRequest !== "undefined") {
 	};
 }
 
-export function request(name, args) {
-	let self = this;
-	let url = this.options.url || "/";
-	let u = typeof url === "function" ? url.call(self, name, args) : url;
+export function request(name, args, options) {
+	options = Object.assign({ url: "/" }, this.options, options);
+	let u = typeof options.url !== "function" ? options.url :
+		options.url.call(this, name, args, options);
 
+	// make the post request
 	return post(u, {
 		name: name,
 		arguments: args
-	}).then(function(data) {
+	})
+
+	// transform the result before returning it
+	.then((result) => {
+		if (typeof options.transform === "function") {
+			return confusedAsync(options.transform, this, [ result ]);
+		}
+
+		return result;
+	})
+
+	// look for errors
+	.then(function(data) {
 		if (data && data.error) {
 			let klass = PhoneError;
 			if (data.name && typeof global[data.name] === "function") klass = global[data.name];
@@ -76,32 +90,72 @@ export function request(name, args) {
 	});
 }
 
-export function responder(phone) {
+export function responder(phone, options) {
+	options = options || {};
 	let parser = jsonParser();
 
-	return function(req, res) {
-		function send(status, data) {
-			let body = JSON.stringify(data);
-			res.statusCode = status;
-			res.setHeader("Content-Type", "application/json");
-			res.setHeader("Content-Length", body.length);
-			res.end(body);
+	return function(req, res, next) {
+		if (req.method !== "POST") {
+			if (typeof next === "function") return next();
+			send(500, { message: "Expecting POST request." });
 		}
 
+		function send(status, data) {
+			// something else is probably handling this response
+			if (res.headersSent) return;
+
+			res.statusCode = status;
+
+			if (typeof res.json === "function") {
+				res.json(data);
+			} else {
+				let body = JSON.stringify(data);
+				res.setHeader("Content-Type", "application/json");
+				res.setHeader("Content-Length", body.length);
+				res.end(body);
+			}
+		}
+
+		// parse the body as JSON
 		new Promise(function(resolve, reject) {
 			parser(req, res, function(err) {
 				if (err) reject(err);
 				else resolve();
 			});
-		}).then(function() {
+		})
+
+		// mixin user request details
+		.then(function() {
+			if (typeof options.mixin === "function") {
+				return confusedAsync(options.mixin, phone, [ req ]);
+			}
+
+			return options.mixin;
+		})
+
+		// run the method
+		.then(function(mixin) {
 			let data = req.body || {};
+
 			return phone.apply(data.name, data.arguments, {
-				mixin: {
+				mixin: Object.assign({
 					request: req,
 					response: res
-				}
+				}, mixin)
 			});
-		}).then(function(resp) {
+		})
+
+		// transform the result before sending it back
+		.then(function(result) {
+			if (typeof options.transform === "function") {
+				return confusedAsync(options.transform, phone, [ result, res ]);
+			}
+
+			return result;
+		})
+
+		// send the result, handle errors
+		.then(function(resp) {
 			send(200, resp);
 		}).catch(function(e) {
 			if (e instanceof PhoneError) send(e.status, e);
