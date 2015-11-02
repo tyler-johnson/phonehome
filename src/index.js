@@ -99,29 +99,27 @@ export default class PhoneHome extends EventEmitter {
 		}
 
 		if (!Array.isArray(args)) {
-			throw new Error("Arguments must be an array.");
+			return Promise.reject(new Error("Arguments must be an array."));
 		}
 
 		options = options || {};
 
+		// get the method
+		let method = this.s.methods[name];
+		if (!method) {
+			return Promise.reject(new PhoneError("No method '" + name + "' defined."));
+		}
+
 		// code thats not at home needs to phone home
 		if (!this.isHome) {
 			let remote, local, sim;
-			sim = options.simulate != null ? options.simulate : this.s.simulate;
+			sim = method.options.simulate != null ? method.options.simulate : this.s.simulate;
 			remote = this._request(name, args, options);
 
 			// execute as a simulation if the method exists locally
-			if (this.has(name) && sim) {
-				local = this._exec(name, args, options.mixin);
-
-				if (typeof options.onDelivery === "function") {
-					remote.then(options.onDelivery);
-				}
-
-				if (typeof options.onError === "function") {
-					remote.catch(options.onError);
-				}
-
+			if (sim && this.has(name)) {
+				local = this._exec(method, args, options.mixin);
+				local.remote = remote;
 				return callbackify(local, cb);
 			}
 
@@ -129,7 +127,7 @@ export default class PhoneHome extends EventEmitter {
 		}
 
 		// home clients do a normal execution
-		return callbackify(this._exec(name, args, options.mixin), cb);
+		return callbackify(this._exec(method, args, options.mixin), cb);
 	}
 
 	_request(name, args, options) {
@@ -141,17 +139,11 @@ export default class PhoneHome extends EventEmitter {
 		return confusedAsync(req, this, [ name, args, options ]);
 	}
 
-	_exec(name, args, mixin) {
-		// get the method
-		let method = this.s.methods[name];
-		if (!method) {
-			return Promise.reject(new PhoneError("No method '" + name + "' defined."));
-		}
-
+	_exec(method, args, mixin) {
 		// create the request object
 		let req = Object.assign({}, mixin, {
 			phone: this,
-			name: name,
+			name: method.name,
 			arguments: args,
 			isSimulation: !this.isHome,
 			options: method.options || {}
