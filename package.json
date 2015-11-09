@@ -11,6 +11,11 @@
 		"content-type": false,
 		"body-parser": false
 	},
+	"scripts": {
+		"lint": "jshint src/ test/ *.js",
+		"test": "tape test/",
+		"prepublish": "npm run lint && npm run test"
+	},
 	"dependencies": {
 		"body-parser": "~1.14.1",
 		"content-type": "~1.0.1"

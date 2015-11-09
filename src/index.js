@@ -172,4 +172,6 @@ export default class PhoneHome extends EventEmitter {
 }
 
 PhoneHome.Error = PhoneError;
+PhoneHome.Post = Post;
 PhoneHome.request = Post.request;
+PhoneHome.responder = Post.responder;
