@@ -169,6 +169,12 @@ export default class PhoneHome extends EventEmitter {
 	http(opts) {
 		return Post.responder(this, opts);
 	}
+
+	error(status, message) {
+		let err = new PhoneError(status, message);
+		err.phone = this;
+		return err;
+	}
 }
 
 PhoneHome.Error = PhoneError;
