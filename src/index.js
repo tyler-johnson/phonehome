@@ -106,24 +106,27 @@ export default class PhoneHome extends EventEmitter {
 
 		// get the method
 		let method = this.s.methods[name];
-		if (!method) {
-			return Promise.reject(new PhoneError("No method '" + name + "' defined."));
-		}
 
 		// code thats not at home needs to phone home
 		if (!this.isHome) {
-			let remote, local, sim;
-			sim = method.options.simulate != null ? method.options.simulate : this.s.simulate;
+			let remote;
+
+			// call home
 			remote = this._request(name, args, options);
 
-			// execute as a simulation if the method exists locally
-			if (sim && this.has(name)) {
-				local = this._exec(method, args, options.mixin);
+			// execute as a simulation
+			if (method && (method.options.simulate != null ? method.options.simulate : this.s.simulate)) {
+				let local = this._exec(method, args, options.mixin);
 				local.remote = remote;
 				return callbackify(local, cb);
 			}
 
 			return callbackify(remote, cb);
+		}
+
+		// method must exist when home
+		if (!method) {
+			return Promise.reject(new PhoneError("No method '" + name + "' defined."));
 		}
 
 		// home clients do a normal execution

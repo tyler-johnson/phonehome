@@ -160,9 +160,7 @@ export function responder(phone, options) {
 		}).catch(function(e) {
 			if (e instanceof PhoneError) send(e.status, e);
 			else {
-				send(500, {
-					message: "Internal Server Error"
-				});
+				send(500, new PhoneError(500, "Internal Server Error"));
 				phone.emit("error", e);
 			}
 		});
