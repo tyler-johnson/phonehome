@@ -1,6 +1,6 @@
 {
 	"name": "phonehome",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Allows clients to run code on a remote server, safely and securely.",
 	"author": "Tyler Johnson <tyler@tylerjohnson.me>",
 	"main": "lib/phonehome.js",
