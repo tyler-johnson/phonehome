@@ -2,6 +2,7 @@ import * as Post from "./post";
 import PhoneError from "./error";
 import {EventEmitter} from "events";
 import {confusedAsync, callbackify} from "./utils";
+import isPlainObject from "is-plain-object";
 
 export default class PhoneHome extends EventEmitter {
 	constructor(options) {
@@ -20,7 +21,9 @@ export default class PhoneHome extends EventEmitter {
 			// whether or nor unhome clients will simulate a method
 			simulate: options.simulate == null ? false : options.simulate,
 			// method to call for remote operations
-			request: options.request != null ? options.request : Post.request
+			request: options.request != null ? options.request : Post.request,
+			// transform results globally
+			transform: options.transform
 		};
 
 		// user options, for the request method
@@ -104,6 +107,19 @@ export default class PhoneHome extends EventEmitter {
 
 		options = options || {};
 
+		// transform the result before returning it
+		let transform = (result) => {
+			if (typeof options.transform === "function") {
+				return confusedAsync(options.transform, this, [ result ]);
+			}
+
+			if (typeof this.s.transform === "function") {
+				return confusedAsync(this.s.transform, this, [ result ]);
+			}
+
+			return result;
+		};
+
 		// get the method
 		let method = this.s.methods[name];
 
@@ -112,11 +128,11 @@ export default class PhoneHome extends EventEmitter {
 			let remote;
 
 			// call home
-			remote = this._request(name, args, options);
+			remote = this._request(name, args, options).then(transform);
 
 			// execute as a simulation
 			if (method && (method.options.simulate != null ? method.options.simulate : this.s.simulate)) {
-				let local = this._exec(method, args, options.mixin);
+				let local = this._exec(method, args, options.mixin).then(transform);
 				local.remote = remote;
 				return callbackify(local, cb);
 			}
@@ -130,7 +146,7 @@ export default class PhoneHome extends EventEmitter {
 		}
 
 		// home clients do a normal execution
-		return callbackify(this._exec(method, args, options.mixin), cb);
+		return callbackify(this._exec(method, args, options.mixin).then(transform), cb);
 	}
 
 	_request(name, args, options) {
@@ -174,7 +190,16 @@ export default class PhoneHome extends EventEmitter {
 	}
 
 	error(status, message) {
-		let err = new PhoneError(status, message);
+		if (typeof status !== "number") [message,status] = [status,400];
+
+		let err;
+		if (isPlainObject(message) && message.name && typeof global[message.name] === "function") {
+			err = new (global[message.name])(message);
+			Object.assign(err, message);
+		} else {
+			err = new PhoneError(status, message);
+		}
+
 		err.phone = this;
 		return err;
 	}

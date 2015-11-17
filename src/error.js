@@ -1,15 +1,29 @@
+import isPlainObject from "is-plain-object";
+
 export default class PhoneError extends Error {
 	constructor(status, message) {
-		let related;
+		let related, obj;
 		if (typeof status !== "number") [message,status] = [status,400];
+
 		if (message instanceof Error) {
 			related = message;
 			message = related.message;
 		}
+
+		else if (isPlainObject(message)) {
+			obj = message;
+			message = obj.message;
+		}
+
 		super(message);
-		if (related) this.related = related;
-		this.message = message;
-		this.status = status;
+
+		if (obj) {
+			Object.assign(this, obj);
+		} else {
+			if (related) this.related = related;
+			this.message = message;
+			this.status = status;
+		}
 	}
 
 	get name() { return "PhoneError"; }

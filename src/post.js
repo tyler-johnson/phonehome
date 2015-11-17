@@ -69,23 +69,9 @@ export function request(name, args, options) {
 		arguments: args
 	})
 
-	// transform the result before returning it
-	.then((result) => {
-		if (typeof options.transform === "function") {
-			return confusedAsync(options.transform, this, [ result ]);
-		}
-
-		return result;
-	})
-
 	// look for errors
-	.then(function(data) {
-		if (data && data.error) {
-			let klass = PhoneError;
-			if (data.name && typeof global[data.name] === "function") klass = global[data.name];
-			throw Object.assign(new klass(), data);
-		}
-
+	.then((data) => {
+		if (data && data.error) throw this.error(data);
 		return data;
 	});
 }
